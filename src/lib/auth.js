@@ -1,4 +1,4 @@
-export const TOKEN_KEY = 'walklet_token';
+export const TOKEN_KEY = "walklet_token";
 
 export function saveToken(token) {
   try {

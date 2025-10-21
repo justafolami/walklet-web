@@ -15,9 +15,15 @@ import {
   useToast,
   Box,
   Spinner,
+  FormHelperText,
+  FormErrorMessage,
 } from "@chakra-ui/react";
 import { api } from "../../lib/api";
 import { getToken } from "../../lib/auth";
+
+function sanitizeUsername(s) {
+  return s.trim().toLowerCase().replace(/\s+/g, "_"); // spaces -> underscores, to lowercase
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -29,6 +35,7 @@ export default function OnboardingPage() {
   const [weightKg, setWeightKg] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uErr, setUErr] = useState(null);
 
   useEffect(() => {
     // Require login
@@ -56,17 +63,18 @@ export default function OnboardingPage() {
   }, [router]);
 
   function validateUsername(name) {
-    if (!name || name.trim().length < 3) {
-      return "Username must be at least 3 characters";
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(name.trim())) {
-      return "Only letters, numbers, and underscores are allowed";
-    }
-    if (name.trim().length > 30) {
-      return "Username must be at most 30 characters";
+    const s = sanitizeUsername(name);
+    if (!s || s.length < 3) return "Username must be at least 3 characters";
+    if (s.length > 30) return "Username must be at most 30 characters";
+    if (!/^[a-z0-9._-]+$/i.test(s)) {
+      return "Only letters, numbers, underscores (_), dots (.), and hyphens (-) are allowed";
     }
     return null;
   }
+
+  useEffect(() => {
+    setUErr(validateUsername(username));
+  }, [username]);
 
   async function handleSubmit() {
     const err = validateUsername(username);
@@ -78,7 +86,7 @@ export default function OnboardingPage() {
     try {
       setSubmitting(true);
       const body = {
-        username: username.trim(),
+        username: sanitizeUsername(username), // send sanitized, lowercased
         age: age ? Number(age) : null,
         weightKg: weightKg ? Number(weightKg) : null,
         heightCm: heightCm ? Number(heightCm) : null,
@@ -111,6 +119,8 @@ export default function OnboardingPage() {
       </Container>
     );
   }
+
+  const preview = username ? sanitizeUsername(username) : "";
 
   return (
     <Container maxW="container.md" py={{ base: 10, md: 16 }}>
@@ -148,14 +158,27 @@ export default function OnboardingPage() {
           borderColor="brand.500"
         >
           <VStack align="stretch" spacing={5}>
-            <FormControl isRequired>
+            <FormControl isRequired isInvalid={!!uErr}>
               <FormLabel>Preferred Username</FormLabel>
               <Input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g., move_master"
+                placeholder="e.g., move_master or john-doe"
                 focusBorderColor="purple.400"
               />
+              {uErr ? (
+                <FormErrorMessage>{uErr}</FormErrorMessage>
+              ) : (
+                <FormHelperText>
+                  3–30 chars. Letters, numbers, underscores (_), dots (.), and
+                  hyphens (-). Spaces will become underscores.
+                  {preview ? (
+                    <Text as="span" ml={2} fontWeight="medium" color="gray.700">
+                      Preview: {preview}
+                    </Text>
+                  ) : null}
+                </FormHelperText>
+              )}
             </FormControl>
 
             <HStack spacing={4} align="stretch">

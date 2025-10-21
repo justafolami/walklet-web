@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Allow both localhost and 127.0.0.1 in dev to avoid cross-origin warnings
   allowedDevOrigins: [
     "http://localhost:3000",
     "http://localhost:3001",
@@ -9,4 +8,4 @@ const nextConfig = {
   ],
 };
 
-export default nextConfig;
+module.exports = nextConfig;

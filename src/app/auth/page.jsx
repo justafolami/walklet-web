@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Container,
   Box,
@@ -19,42 +19,44 @@ import {
   TabPanels,
   TabPanel,
   Tab,
-} from '@chakra-ui/react';
-import { API_URL } from '../../lib/api';
-import { saveToken } from '../../lib/auth';
+  Divider,
+} from "@chakra-ui/react";
+import { API_URL } from "../../lib/api"; // NOTE: ../../ from app/auth to lib
+import { saveToken } from "../../lib/auth"; // NOTE: ../../ from app/auth to lib
+import GoogleAuth from "../../components/GoogleAuth";
 
 export default function AuthPage() {
   const router = useRouter();
   const toast = useToast();
 
   // Login form state
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
   // Signup form state
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [signupLoading, setSignupLoading] = useState(false);
 
   async function handleLogin() {
     try {
       setLoginLoading(true);
       const res = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: loginEmail.trim(),
-          password,
+          password: loginPassword, // important: use loginPassword here
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
+      if (!res.ok) throw new Error(data.error || "Login failed");
       saveToken(data.token);
-      toast({ title: 'Logged in!', status: 'success' });
-      router.push('/');
+      toast({ title: "Logged in!", status: "success" });
+      router.push("/");
     } catch (e) {
-      toast({ title: 'Login error', description: e.message, status: 'error' });
+      toast({ title: "Login error", description: e.message, status: "error" });
     } finally {
       setLoginLoading(false);
     }
@@ -64,20 +66,20 @@ export default function AuthPage() {
     try {
       setSignupLoading(true);
       const res = await fetch(`${API_URL}/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim(),
           password,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Signup failed');
+      if (!res.ok) throw new Error(data.error || "Signup failed");
       saveToken(data.token);
-      toast({ title: 'Account created!', status: 'success' });
-      router.push('/onboarding'); // redirect to onboarding page
+      toast({ title: "Account created!", status: "success" });
+      router.push("/onboarding");
     } catch (e) {
-      toast({ title: 'Signup error', description: e.message, status: 'error' });
+      toast({ title: "Signup error", description: e.message, status: "error" });
     } finally {
       setSignupLoading(false);
     }
@@ -118,7 +120,11 @@ export default function AuthPage() {
                     placeholder="At least 8 characters"
                   />
                 </FormControl>
-                <Button colorScheme="purple" onClick={handleLogin} isLoading={loginLoading}>
+                <Button
+                  colorScheme="purple"
+                  onClick={handleLogin}
+                  isLoading={loginLoading}
+                >
                   Log In
                 </Button>
               </VStack>
@@ -144,7 +150,11 @@ export default function AuthPage() {
                     placeholder="At least 8 characters"
                   />
                 </FormControl>
-                <Button colorScheme="purple" onClick={handleSignup} isLoading={signupLoading}>
+                <Button
+                  colorScheme="purple"
+                  onClick={handleSignup}
+                  isLoading={signupLoading}
+                >
                   Create Account
                 </Button>
               </VStack>
@@ -152,9 +162,20 @@ export default function AuthPage() {
           </TabPanels>
         </Tabs>
 
-        <Box fontSize="sm" color="gray.500">
-          Your photo and GPS data will only be used in real-time for analysis and not stored.
-        </Box>
+        <HStack align="center">
+          <Divider />
+          <Text fontSize="sm" color="gray.500">
+            or
+          </Text>
+          <Divider />
+        </HStack>
+
+        {/* Continue with Google */}
+        {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+          <VStack align="center">
+            <GoogleAuth />
+          </VStack>
+        )}
       </VStack>
     </Container>
   );

@@ -1,6 +1,10 @@
 "use client";
 
 import { ChakraProvider, extendTheme } from "@chakra-ui/react";
+import { WagmiProvider, createConfig, http } from "wagmi";
+import { baseSepolia } from "wagmi/chains";
+import { injected, coinbaseWallet } from "wagmi/connectors";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const theme = extendTheme({
   colors: {
@@ -19,6 +23,29 @@ const theme = extendTheme({
   },
 });
 
+const config = createConfig({
+  chains: [baseSepolia], // Base Sepolia = current Base testnet
+  transports: {
+    [baseSepolia.id]: http(), // public RPC is fine for dev
+  },
+  connectors: [
+    injected({ shimDisconnect: true }), // MetaMask/Injected
+    coinbaseWallet({
+      appName: "Walklet",
+      preference: "all",
+      chainId: baseSepolia.id,
+    }),
+  ],
+});
+
+const queryClient = new QueryClient();
+
 export default function Providers({ children }) {
-  return <ChakraProvider theme={theme}>{children}</ChakraProvider>;
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <ChakraProvider theme={theme}>{children}</ChakraProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
 }
