@@ -16,12 +16,20 @@ import {
   HStack,
   Badge,
   useToast,
+  Progress,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
 } from "@chakra-ui/react";
 import { api } from "../lib/api";
 import { getToken, clearToken } from "../lib/auth";
 import ConnectWallet from "../components/ConnectWallet";
-import WalkHistory from "../components/WalkHistory";
 import WalkTracker from "../components/WalkTracker";
+import WalkHistory from "../components/WalkHistory";
+import DevToolsCard from "../components/DevToolsCard";
+import MealAnalyzer from "../components/MealAnalyzer";
 import { useAccount, useChainId } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
 
@@ -51,12 +59,16 @@ function shortAddress(addr) {
 }
 
 export default function Home() {
+  // State
   const [user, setUser] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [stepsToday, setStepsToday] = useState(0);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [dailyGoal, setDailyGoal] = useState(6000);
+  const [savingGoal, setSavingGoal] = useState(false);
   const toast = useToast();
 
-  // Wallet connection (only show connect after login)
+  // Wallet connect (only show after login)
   const { address: connectedAddress, isConnected } = useAccount();
   const chainId = useChainId();
   const onBaseSepolia = chainId === baseSepolia.id;
@@ -66,12 +78,14 @@ export default function Home() {
     ? connectedAddress
     : user?.walletAddress || null;
 
+  // API helpers
   async function refreshMe() {
     const data = await api("/me");
     setUser(data.user);
+    // get goal from backend (defaults server-side to 6000)
+    setDailyGoal(data.user.dailyStepGoal ?? 6000);
   }
 
-  // Load today's totals (local timezone)
   async function loadTodayTotals() {
     try {
       const tzOffsetMin = -new Date().getTimezoneOffset(); // minutes east of UTC
@@ -80,6 +94,32 @@ export default function Home() {
     } catch {
       // ignore if not logged in yet
     }
+  }
+
+  async function saveDailyGoal() {
+    try {
+      setSavingGoal(true);
+      const goal = Math.max(0, Number(dailyGoal) || 0);
+      await api("/profile/goal", {
+        method: "POST",
+        body: { dailyStepGoal: goal },
+      });
+      setDailyGoal(goal);
+      toast({ title: "Daily goal saved", status: "success" });
+    } catch (e) {
+      toast({
+        title: "Failed to save goal",
+        description: e.message,
+        status: "error",
+      });
+    } finally {
+      setSavingGoal(false);
+    }
+  }
+
+  async function handleDevReset() {
+    await loadTodayTotals();
+    setHistoryRefreshKey((k) => k + 1);
   }
 
   // Initial load after login
@@ -131,6 +171,7 @@ export default function Home() {
     clearToken();
     setUser(null);
     setStepsToday(0);
+    setHistoryRefreshKey((k) => k + 1);
     toast({ title: "Logged out", status: "info" });
   }
 
@@ -211,6 +252,75 @@ export default function Home() {
           <StatCard label="STPC Balance" value="0" color="purple.400" />
         </SimpleGrid>
 
+        {/* Daily Goal card */}
+        {user && (
+          <Box p={6} bg="white" rounded="xl" boxShadow="md">
+            <VStack align="stretch" spacing={3}>
+              <Heading size="md">Daily Goal</Heading>
+
+              {/* Progress */}
+              {(() => {
+                const goal = Math.max(1, Number(dailyGoal) || 1);
+                const pct = Math.min(
+                  100,
+                  Math.round((stepsToday / goal) * 100)
+                );
+                const color =
+                  pct >= 100 ? "green" : pct >= 60 ? "purple" : "gray";
+                return (
+                  <VStack align="stretch" spacing={2}>
+                    <HStack justify="space-between">
+                      <Text color="gray.700">Progress</Text>
+                      <Text fontSize="sm" color="gray.600">
+                        {stepsToday.toLocaleString()} / {goal.toLocaleString()}{" "}
+                        steps ({pct}%)
+                      </Text>
+                    </HStack>
+                    <Progress
+                      value={pct}
+                      colorScheme={color}
+                      rounded="md"
+                      height="10px"
+                    />
+                  </VStack>
+                );
+              })()}
+
+              {/* Goal editor */}
+              <HStack>
+                <Text color="gray.700">Set goal:</Text>
+                <NumberInput
+                  size="sm"
+                  maxW="160px"
+                  min={0}
+                  step={500}
+                  value={dailyGoal}
+                  onChange={(v) => setDailyGoal(Number(v) || 0)}
+                >
+                  <NumberInputField />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+                <Button
+                  size="sm"
+                  colorScheme="purple"
+                  onClick={saveDailyGoal}
+                  isLoading={savingGoal}
+                >
+                  Save
+                </Button>
+              </HStack>
+
+              <Text fontSize="xs" color="gray.500">
+                Tip: most people aim for 6,000–10,000 steps/day. Adjust to suit
+                your goals.
+              </Text>
+            </VStack>
+          </Box>
+        )}
+
         {/* Wallet card */}
         {user && (
           <Box p={6} bg="white" rounded="xl" boxShadow="md">
@@ -259,26 +369,43 @@ export default function Home() {
         )}
 
         {/* Walk tracking */}
-        {user && <WalkTracker user={user} onStepsChange={setStepsToday} />}
-        {user && <WalkHistory refreshKey={stepsToday} />}
+        {user && (
+          <WalkTracker
+            user={user}
+            onStepsChange={(updater) => {
+              setStepsToday((prev) =>
+                typeof updater === "function" ? updater(prev) : updater
+              );
+              setHistoryRefreshKey((k) => k + 1);
+            }}
+          />
+        )}
 
-        {/* Meal card */}
-        <Box p={6} bg="white" rounded="xl" boxShadow="md">
-          <VStack spacing={4}>
-            <Heading size="md">Today’s Meal</Heading>
-            <Text color="gray.600">
-              Analyze a meal photo for quick nutrition feedback.
-            </Text>
-            <Button size="lg" colorScheme="purple" w="full" isDisabled={!user}>
-              Analyze Today’s Meal
-            </Button>
-            {!user && (
-              <Text fontSize="xs" color="gray.500">
-                Sign in to analyze today’s meal.
-              </Text>
-            )}
-          </VStack>
-        </Box>
+        {/* Today’s history */}
+        {user && <WalkHistory refreshKey={stepsToday + historyRefreshKey} />}
+
+        {/* Dev tools (dev only) */}
+        {user && <DevToolsCard onReset={handleDevReset} />}
+
+        {/* Meal analyzer */}
+        {user ? (
+          <MealAnalyzer />
+        ) : (
+          <Box p={6} bg="white" rounded="xl" boxShadow="md">
+            <VStack spacing={4}>
+              <Heading size="md">Today’s Meal</Heading>
+              <Text color="gray.600">Sign in to analyze a meal.</Text>
+              <Button
+                as={Link}
+                href="/auth"
+                colorScheme="purple"
+                w="fit-content"
+              >
+                Sign in
+              </Button>
+            </VStack>
+          </Box>
+        )}
       </VStack>
     </Container>
   );
