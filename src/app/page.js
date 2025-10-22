@@ -30,6 +30,8 @@ import WalkTracker from "../components/WalkTracker";
 import WalkHistory from "../components/WalkHistory";
 import DevToolsCard from "../components/DevToolsCard";
 import MealAnalyzer from "../components/MealAnalyzer";
+import DevRewardsCard from "../components/DevRewardsCard";
+import StpcBalance from "../components/StpcBalance";
 import { useAccount, useChainId } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
 
@@ -252,6 +254,16 @@ export default function Home() {
           <StatCard label="STPC Balance" value="0" color="purple.400" />
         </SimpleGrid>
 
+        {/* STPC on-chain balance (for the in-use wallet) */}
+        {user && (
+          <StpcBalance
+            address={
+              inUseAddress /* connected wallet if connected+on Base, else app wallet */
+            }
+            chainId={84532}
+          />
+        )}
+
         {/* Daily Goal card */}
         {user && (
           <Box p={6} bg="white" rounded="xl" boxShadow="md">
@@ -386,6 +398,30 @@ export default function Home() {
 
         {/* Dev tools (dev only) */}
         {user && <DevToolsCard onReset={handleDevReset} />}
+
+        {/* Dev tools (dev only) */}
+        {user && <DevToolsCard onReset={handleDevReset} />}
+
+        {/* Dev reward vouchers (dev only) */}
+        {user && (
+          <DevRewardsCard
+            onClaimed={async () => {
+              await loadTodayTotals();
+            }}
+          />
+        )}
+
+        {/* Dev tools (dev only) */}
+        {user && <DevToolsCard onReset={handleDevReset} />}
+
+        {/* Dev reward vouchers (dev only) */}
+        {user && (
+          <DevRewardsCard
+            onClaimed={async () => {
+              await loadTodayTotals();
+            }}
+          />
+        )}
 
         {/* Meal analyzer */}
         {user ? (
